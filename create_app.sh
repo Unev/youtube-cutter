@@ -40,7 +40,20 @@ PLIST
 
 echo ""
 echo "✓ Created: $APP_PATH"
+
+# Register as login item (remove old entry first to avoid duplicates)
+osascript 2>/dev/null <<APPLESCRIPT
+tell application "System Events"
+  set appPath to "$APP_PATH"
+  set loginItems to every login item
+  repeat with li in loginItems
+    if path of li is appPath then delete li
+  end repeat
+  make login item at end with properties {path:appPath, hidden:false}
+end tell
+APPLESCRIPT
+echo "✓ Registered as login item — menu bar icon appears automatically on login"
 echo ""
-echo "  Double-click 'YT Cutter.app' in Finder to launch."
+echo "  Double-click 'YT Cutter.app' in Finder to launch now."
 echo "  You can also drag it to /Applications."
 echo ""

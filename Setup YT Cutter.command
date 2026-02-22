@@ -62,6 +62,12 @@ echo "  ▸ Building YT Cutter.app..."
 bash "$DIR/create_app.sh" > /dev/null
 echo "  ✓ App created"
 
+# ── Add to login items (auto-start on login) ──────────────────────────────────
+echo "  ▸ Adding to login items..."
+osascript -e "tell application \"System Events\" to make login item at end with properties {path:\"$DIR/YT Cutter.app\", hidden:false}" 2>/dev/null \
+  && echo "  ✓ Will launch automatically on login" \
+  || echo "  ⚠  Could not add to login items — add manually via System Settings > General > Login Items"
+
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo "  ╔══════════════════════════════════╗"
