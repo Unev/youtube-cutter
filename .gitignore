@@ -1,0 +1,7 @@
+venv/
+downloads/
+.claude/
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YouTube Cutter & Downloader</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="logo">
+        <span class="logo-icon">▶</span>
+        <span>YT Cutter</span>
+      </div>
+    </header>
+
+    <main>
+      <!-- URL input -->
+      <section class="card url-card">
+        <label class="label">YouTube URL</label>
+        <div class="url-row">
+          <input id="url-input" type="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" />
+          <button id="fetch-btn" class="btn btn-primary">Fetch Info</button>
+        </div>
+      </section>
+
+      <!-- Video info -->
+      <section class="card info-card hidden" id="info-card">
+        <div class="video-meta">
+          <img id="thumb" src="" alt="thumbnail" class="thumb" />
+          <div class="meta-text">
+            <div id="vid-title" class="vid-title"></div>
+            <div id="vid-channel" class="vid-channel"></div>
+            <div id="vid-duration" class="vid-duration"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Options -->
+      <section class="card options-card hidden" id="options-card">
+        <div class="options-grid">
+
+          <!-- Quality -->
+          <div class="option-group">
+            <label class="label">Quality</label>
+            <select id="quality-select"></select>
+          </div>
+
+          <!-- Cut (only for video) -->
+          <div class="option-group" id="cut-group">
+            <label class="label">Cut (optional)</label>
+            <div class="time-row">
+              <div class="time-field">
+                <span class="time-label">Start</span>
+                <input id="start-time" type="text" placeholder="00:00" />
+              </div>
+              <div class="time-sep">→</div>
+              <div class="time-field">
+                <span class="time-label">End</span>
+                <input id="end-time" type="text" placeholder="01:30" />
+              </div>
+            </div>
+            <p class="hint">Format: MM:SS or HH:MM:SS — leave blank for full video</p>
+          </div>
+
+        </div>
+
+        <button id="download-btn" class="btn btn-download">Download</button>
+      </section>
+
+      <!-- Progress -->
+      <section class="card progress-card hidden" id="progress-card">
+        <div class="progress-label" id="progress-label">Starting…</div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar" id="progress-bar" style="width:0%"></div>
+        </div>
+        <div class="progress-meta" id="progress-meta"></div>
+      </section>
+
+      <!-- Result -->
+      <section class="card result-card hidden" id="result-card">
+        <div class="result-icon">✓</div>
+        <div id="result-title" class="result-title"></div>
+        <a id="result-link" href="#" class="btn btn-primary" download>Save file</a>
+        <button id="new-btn" class="btn btn-ghost">Download another</button>
+      </section>
+
+      <!-- Error -->
+      <section class="card error-card hidden" id="error-card">
+        <div class="error-icon">✕</div>
+        <div id="error-msg" class="error-msg"></div>
+        <button id="retry-btn" class="btn btn-ghost">Try again</button>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
