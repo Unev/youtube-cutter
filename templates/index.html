@@ -20,8 +20,10 @@
       <section class="card url-card">
         <label class="label">YouTube URL</label>
         <div class="url-row">
-          <input id="url-input" type="url" placeholder="https://www.youtube.com/watch?v=..." autocomplete="off" />
+          <input id="url-input" type="url" placeholder="https://www.youtube.com/watch?v=..." list="url-history" autocomplete="off" />
+          <datalist id="url-history"></datalist>
           <button id="fetch-btn" class="btn btn-primary">Fetch Info</button>
+          <button id="clear-history-btn" class="btn btn-ghost" title="Clear URL history">Clear History</button>
         </div>
       </section>
 
@@ -45,6 +47,7 @@
           <div class="option-group">
             <label class="label">Quality</label>
             <select id="quality-select"></select>
+            <span id="size-hint" class="hint"></span>
           </div>
 
           <!-- Cut (only for video) -->

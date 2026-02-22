@@ -13,6 +13,39 @@ const downloadBtn = $("download-btn");
 
 let videoInfo = null;
 
+// ── URL History ──────────────────────────────────────────────────────────────
+
+const HISTORY_KEY = "yt-history";
+
+function loadHistory() {
+  try { return JSON.parse(localStorage.getItem(HISTORY_KEY)) || []; }
+  catch { return []; }
+}
+
+function saveToHistory(url) {
+  const history = loadHistory().filter(u => u !== url);
+  history.unshift(url);
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 15)));
+  renderHistory();
+}
+
+function renderHistory() {
+  const list = $("url-history");
+  list.innerHTML = "";
+  for (const url of loadHistory()) {
+    const opt = document.createElement("option");
+    opt.value = url;
+    list.appendChild(opt);
+  }
+}
+
+renderHistory();
+
+$("clear-history-btn").addEventListener("click", () => {
+  localStorage.removeItem(HISTORY_KEY);
+  renderHistory();
+});
+
 // ── Fetch video info ────────────────────────────────────────────────────────
 
 fetchBtn.addEventListener("click", fetchInfo);
@@ -35,6 +68,7 @@ async function fetchInfo() {
     if (data.error) throw new Error(data.error);
 
     videoInfo = data;
+    saveToHistory(url);
     showInfo(data);
   } catch (err) {
     showError(err.message);
@@ -55,15 +89,61 @@ function showInfo(data) {
     const opt = document.createElement("option");
     opt.value = fmt.height;
     opt.textContent = fmt.label;
+    opt.dataset.filesize = fmt.filesize ?? "";
     qualitySelect.appendChild(opt);
   }
 
-  // Show/hide cut section based on audio-only
+  // Update on quality or time change
+  qualitySelect.addEventListener("change", updateSizeHint);
+  $("start-time").addEventListener("input", updateSizeHint);
+  $("end-time").addEventListener("input", updateSizeHint);
   qualitySelect.addEventListener("change", updateCutVisibility);
   updateCutVisibility();
+  updateSizeHint();
 
   show(infoCard);
   show(optionsCard);
+}
+
+// ── Size hint ────────────────────────────────────────────────────────────────
+
+function parseTime(t) {
+  if (!t) return 0;
+  const parts = t.split(":").map(Number);
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return Number(parts[0]) || 0;
+}
+
+function formatBytes(bytes) {
+  if (!bytes) return "";
+  if (bytes >= 1e9) return (bytes / 1e9).toFixed(1) + " GB";
+  if (bytes >= 1e6) return (bytes / 1e6).toFixed(1) + " MB";
+  return (bytes / 1e3).toFixed(0) + " KB";
+}
+
+function updateSizeHint() {
+  const selected = qualitySelect.selectedOptions[0];
+  const filesize = Number(selected?.dataset.filesize) || 0;
+
+  if (!filesize || !videoInfo) {
+    $("size-hint").textContent = "";
+    return;
+  }
+
+  const duration = videoInfo.duration;
+  const start = parseTime($("start-time").value.trim());
+  const end   = parseTime($("end-time").value.trim());
+
+  let clipDuration = duration;
+  if (end > 0 && end > start) {
+    clipDuration = end - start;
+  } else if (start > 0 && end === 0) {
+    clipDuration = duration - start;
+  }
+
+  const ratio = Math.min(clipDuration / duration, 1);
+  $("size-hint").textContent = `~${formatBytes(filesize * ratio)}`;
 }
 
 function updateCutVisibility() {
@@ -109,7 +189,10 @@ function listenProgress(jobId) {
 
     if (d.status === "downloading") {
       const pct = Math.round(d.pct || 0);
-      setProgress(pct, `Downloading… ${pct}%`, `${d.speed}  ETA ${d.eta}`);
+      const sizeInfo = d.total
+        ? `${formatBytes(d.downloaded)} / ${formatBytes(d.total)}`
+        : formatBytes(d.downloaded);
+      setProgress(pct, `Downloading… ${pct}%`, `${sizeInfo}  ${d.speed}  ETA ${d.eta}`);
     } else if (d.status === "processing") {
       setProgress(100, "Processing…", "Merging audio & video");
     } else if (d.status === "cutting") {

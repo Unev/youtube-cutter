@@ -64,20 +64,39 @@ def video_info():
 
     duration = info.get("duration", 0)
 
-    # Collect unique resolutions (video+audio formats)
-    formats = []
-    seen = set()
+    # Find best audio format size
+    best_audio_size = 0
+    for f in info.get("formats", []):
+        if f.get("vcodec") == "none" and f.get("acodec") != "none":
+            s = f.get("filesize") or f.get("filesize_approx") or 0
+            if s > best_audio_size:
+                best_audio_size = s
+
+    # Collect unique resolutions, tracking best filesize per height
+    seen: dict[int, int] = {}
     for f in info.get("formats", []):
         height = f.get("height")
         vcodec = f.get("vcodec", "none")
-        acodec = f.get("acodec", "none")
-        if height and vcodec != "none" and height not in seen:
-            seen.add(height)
-            formats.append({"label": f"{height}p", "height": height})
-    formats.sort(key=lambda x: x["height"], reverse=True)
+        if height and vcodec != "none":
+            s = f.get("filesize") or f.get("filesize_approx") or 0
+            if height not in seen or s > seen[height]:
+                seen[height] = s
+
+    formats = []
+    for height in sorted(seen, reverse=True):
+        total = seen[height] + best_audio_size
+        formats.append({
+            "label": f"{height}p",
+            "height": height,
+            "filesize": total if total > 0 else None,
+        })
 
     # Always add audio-only option
-    formats.append({"label": "Audio only (MP3)", "height": 0})
+    formats.append({
+        "label": "Audio only (MP3)",
+        "height": 0,
+        "filesize": best_audio_size if best_audio_size > 0 else None,
+    })
 
     return jsonify({
         "title": info.get("title", "Unknown"),
@@ -150,88 +169,137 @@ def _parse_time(t: str) -> float:
     return float(parts[0])
 
 
+def _safe_title(title: str) -> str:
+    return "".join(c for c in title if c.isalnum() or c in " -_").strip()[:60]
+
+
+def _ffmpeg_clip(job_id: str, url: str, height: int, start: str, end: str) -> tuple[str, str]:
+    """Get stream URLs via yt-dlp then use ffmpeg to download only the clip range."""
+    fmt = (f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]"
+           f"/bestvideo[height<={height}]+bestaudio/best[height<={height}]")
+
+    _push(job_id, {"status": "downloading", "pct": 0, "speed": "", "eta": "",
+                   "downloaded": 0, "total": 0})
+
+    with yt_dlp.YoutubeDL({"format": fmt, "quiet": True}) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    title = info.get("title", "video")
+    duration = float(info.get("duration") or 0)
+    req_fmts = info.get("requested_formats") or [info]
+
+    start_secs = _parse_time(start) if start else 0.0
+    end_secs = _parse_time(end) if end else duration
+    clip_dur = max(end_secs - start_secs, 0.1)
+
+    out_name = f"{_safe_title(title)}.mp4"
+    out_path = DOWNLOADS_DIR / out_name
+
+    ua = req_fmts[0].get("http_headers", {}).get("User-Agent", "")
+
+    cmd = ["ffmpeg", "-y", "-hide_banner"]
+    if ua:
+        cmd += ["-user_agent", ua]
+    cmd += ["-ss", str(start_secs), "-i", req_fmts[0]["url"]]
+    if len(req_fmts) == 2:
+        cmd += ["-ss", str(start_secs), "-i", req_fmts[1]["url"]]
+    cmd += ["-t", str(clip_dur), "-c", "copy",
+            "-progress", "pipe:1", "-nostats", str(out_path)]
+
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+    props: dict = {}
+    for line in proc.stdout:
+        line = line.strip()
+        if "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        props[k] = v
+        if k == "progress":
+            t_ms = int(props.get("out_time_ms", "0") or "0")
+            size = int(props.get("total_size", "0") or "0")
+            pct = min(t_ms / 1_000_000 / clip_dur * 100, 99) if clip_dur else 0
+            _push(job_id, {"status": "downloading", "pct": round(pct, 1),
+                           "speed": props.get("speed", ""), "eta": "",
+                           "downloaded": size, "total": 0})
+            props = {}
+
+    proc.wait()
+    if proc.returncode != 0:
+        raise RuntimeError("ffmpeg failed to download/cut the clip")
+
+    return out_name, title
+
+
 def _run_download(job_id: str, url: str, height: int, start: str, end: str):
     audio_only = height == 0
     tmp_id = str(uuid.uuid4())
     tmp_path = DOWNLOADS_DIR / f"tmp_{tmp_id}.%(ext)s"
 
-    def progress_hook(d):
-        if d["status"] == "downloading":
-            pct = d.get("_percent_str", "0%").strip().replace("%", "")
-            try:
-                pct = float(pct)
-            except ValueError:
-                pct = 0
-            speed = d.get("_speed_str", "").strip()
-            eta = d.get("_eta_str", "").strip()
-            _push(job_id, {"status": "downloading", "pct": pct, "speed": speed, "eta": eta})
-        elif d["status"] == "finished":
-            _push(job_id, {"status": "processing", "pct": 100})
-
-    if audio_only:
-        fmt = "bestaudio/best"
-        ydl_opts = {
-            "format": fmt,
-            "outtmpl": str(tmp_path),
-            "progress_hooks": [progress_hook],
-            "quiet": True,
-            "postprocessors": [{
-                "key": "FFmpegExtractAudio",
-                "preferredcodec": "mp3",
-                "preferredquality": "192",
-            }],
-        }
-    else:
-        fmt = f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<={height}]+bestaudio/best[height<={height}]"
-        ydl_opts = {
-            "format": fmt,
-            "outtmpl": str(tmp_path),
-            "progress_hooks": [progress_hook],
-            "quiet": True,
-            "merge_output_format": "mp4",
-        }
-
     try:
+        # Clip download: use ffmpeg for true partial download
+        if not audio_only and (start or end):
+            out_name, title = _ffmpeg_clip(job_id, url, height, start, end)
+            _push(job_id, {"status": "done", "filename": out_name, "title": title})
+            return
+
+        # Full video / audio: use yt-dlp normally
+        def progress_hook(d):
+            if d["status"] == "downloading":
+                pct = d.get("_percent_str", "0%").strip().replace("%", "")
+                try:
+                    pct = float(pct)
+                except ValueError:
+                    pct = 0
+                _push(job_id, {
+                    "status": "downloading", "pct": pct,
+                    "speed": d.get("_speed_str", "").strip(),
+                    "eta": d.get("_eta_str", "").strip(),
+                    "downloaded": d.get("downloaded_bytes") or 0,
+                    "total": d.get("total_bytes") or d.get("total_bytes_estimate") or 0,
+                })
+            elif d["status"] == "finished":
+                _push(job_id, {"status": "processing", "pct": 100})
+
+        if audio_only:
+            ydl_opts = {
+                "format": "bestaudio/best",
+                "outtmpl": str(tmp_path),
+                "progress_hooks": [progress_hook],
+                "quiet": True,
+                "postprocessors": [{
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "192",
+                }],
+            }
+        else:
+            fmt = (f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]"
+                   f"/bestvideo[height<={height}]+bestaudio/best[height<={height}]")
+            ydl_opts = {
+                "format": fmt,
+                "outtmpl": str(tmp_path),
+                "progress_hooks": [progress_hook],
+                "quiet": True,
+                "merge_output_format": "mp4",
+            }
+
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=True)
             title = info.get("title", "video")
 
-        # Find the downloaded file
         ext = "mp3" if audio_only else "mp4"
-        downloaded = next(DOWNLOADS_DIR.glob(f"tmp_{tmp_id}*.{ext}"), None)
-        if not downloaded:
-            # Try any extension
-            downloaded = next(DOWNLOADS_DIR.glob(f"tmp_{tmp_id}*"), None)
-        if not downloaded:
+        downloaded_file = (next(DOWNLOADS_DIR.glob(f"tmp_{tmp_id}*.{ext}"), None)
+                           or next(DOWNLOADS_DIR.glob(f"tmp_{tmp_id}*"), None))
+        if not downloaded_file:
             raise FileNotFoundError("Downloaded file not found")
 
-        # Safe output filename
-        safe_title = "".join(c for c in title if c.isalnum() or c in " -_").strip()[:60]
-        out_name = f"{safe_title}.{ext}"
-        out_path = DOWNLOADS_DIR / out_name
-
-        # Cut if start/end provided and we have video
-        if not audio_only and (start or end):
-            _push(job_id, {"status": "cutting"})
-            cut_path = DOWNLOADS_DIR / f"cut_{tmp_id}.mp4"
-            cmd = ["ffmpeg", "-y", "-i", str(downloaded)]
-            if start:
-                cmd += ["-ss", str(_parse_time(start))]
-            if end:
-                cmd += ["-to", str(_parse_time(end))]
-            cmd += ["-c", "copy", str(cut_path)]
-            subprocess.run(cmd, check=True, capture_output=True)
-            downloaded.unlink(missing_ok=True)
-            cut_path.rename(out_path)
-        else:
-            downloaded.rename(out_path)
-
+        out_name = f"{_safe_title(title)}.{ext}"
+        downloaded_file.rename(DOWNLOADS_DIR / out_name)
         _push(job_id, {"status": "done", "filename": out_name, "title": title})
 
     except Exception as e:
         _push(job_id, {"status": "error", "message": str(e)})
     finally:
-        # Cleanup any leftover tmp files
         for f in DOWNLOADS_DIR.glob(f"tmp_{tmp_id}*"):
             f.unlink(missing_ok=True)
         _progress_queues.pop(job_id, None)
