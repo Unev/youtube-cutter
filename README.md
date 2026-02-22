@@ -29,37 +29,28 @@ A local web app to download and clip YouTube videos — no ads, no sign-up, runs
 
 ## Requirements
 
-- macOS (menu bar app is macOS only)
-- Python 3.10+
-- [ffmpeg](https://ffmpeg.org) — required for merging video/audio and clipping
+- macOS
+- [Homebrew](https://brew.sh) *(setup script installs it automatically if missing)*
 
-Install ffmpeg with Homebrew:
-```bash
-brew install ffmpeg
-```
+Everything else (Python, ffmpeg, dependencies) is handled by the setup script.
 
 ---
 
 ## Setup
 
-**1. Clone the repo**
 ```bash
 git clone https://github.com/Unev/youtube-cutter.git
 cd youtube-cutter
+./setup.sh
 ```
 
-**2. Create the virtual environment and install dependencies**
-```bash
-python3 -m venv venv
-venv/bin/pip install -r requirements.txt
-```
+That's it. The script will:
+- Install Homebrew (if missing)
+- Install Python and ffmpeg (if missing)
+- Create a virtual environment and install all Python packages
+- Build `YT Cutter.app` and open Finder so you can launch it
 
-**3. Build the menu bar app** *(one-time)*
-```bash
-./create_app.sh
-```
-
-This creates `YT Cutter.app` in the project folder. You can leave it there or drag it to `/Applications`.
+> Drag `YT Cutter.app` to `/Applications` for easy access from Spotlight.
 
 ---
 
