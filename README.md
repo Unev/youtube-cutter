@@ -38,13 +38,32 @@ Everything else (Python, ffmpeg, dependencies) is handled by the setup script.
 
 ## Setup
 
+### Option 1 — One-line install (easiest)
+
+Open **Terminal** (press `⌘ Space`, type `Terminal`, press Enter) and paste:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Unev/youtube-cutter/master/setup-remote.sh | bash
+```
+
+This downloads and runs the setup automatically. When it's done, Finder opens showing `YT Cutter.app`.
+
+---
+
+### Option 2 — Download the zip
+
 1. [Download the project](https://github.com/Unev/youtube-cutter/archive/refs/heads/master.zip) and unzip it
-2. Open the folder in Finder
-3. **Double-click `Setup YT Cutter.command`**
+2. Open **Terminal**, drag the unzipped folder into the Terminal window, then run:
 
-> First time only: macOS may ask *"Are you sure you want to open this?"* — click **Open**.
+```bash
+bash "Setup YT Cutter.command"
+```
 
-The setup window will install everything automatically (Homebrew, Python, ffmpeg, packages) and build `YT Cutter.app`. When it's done, Finder opens showing the app.
+> **Why not double-click?** macOS Gatekeeper blocks scripts downloaded from the internet. Running via `bash` in Terminal bypasses this safely — you can inspect the script first if you'd like.
+
+---
+
+The setup installs everything automatically (Homebrew, Python, ffmpeg, packages) and builds `YT Cutter.app`. When it's done, Finder opens showing the app.
 
 > Drag `YT Cutter.app` to `/Applications` for easy access from Spotlight.
 
@@ -91,6 +110,7 @@ youtube-cutter/
 ├── menubar.py      # macOS menu bar app (rumps)
 ├── create_app.sh   # Builds YT Cutter.app
 ├── start.sh        # Terminal launcher
+├── setup-remote.sh # One-line remote installer
 ├── requirements.txt
 ├── static/
 │   ├── app.js
