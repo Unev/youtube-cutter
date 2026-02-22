@@ -38,32 +38,13 @@ Everything else (Python, ffmpeg, dependencies) is handled by the setup script.
 
 ## Setup
 
-### Option 1 — One-line install (easiest)
-
-Open **Terminal** (press `⌘ Space`, type `Terminal`, press Enter) and paste:
+Open **Terminal** (press `⌘ Space`, type `Terminal`, press Enter) and paste this one line:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Unev/youtube-cutter/master/setup-remote.sh | bash
 ```
 
-This downloads and runs the setup automatically. When it's done, Finder opens showing `YT Cutter.app`.
-
----
-
-### Option 2 — Download the zip
-
-1. [Download the project](https://github.com/Unev/youtube-cutter/archive/refs/heads/master.zip) and unzip it
-2. Open **Terminal**, drag the unzipped folder into the Terminal window, then run:
-
-```bash
-bash "Setup YT Cutter.command"
-```
-
-> **Why not double-click?** macOS Gatekeeper blocks scripts downloaded from the internet. Running via `bash` in Terminal bypasses this safely — you can inspect the script first if you'd like.
-
----
-
-The setup installs everything automatically (Homebrew, Python, ffmpeg, packages) and builds `YT Cutter.app`. When it's done, Finder opens showing the app.
+That's it. It downloads the project, installs everything (Homebrew, Python, ffmpeg, packages), and builds `YT Cutter.app`. When done, Finder opens showing the app.
 
 > Drag `YT Cutter.app` to `/Applications` for easy access from Spotlight.
 
@@ -106,11 +87,12 @@ The menu bar icon (▶) lets you:
 
 ```
 youtube-cutter/
-├── app.py          # Flask backend
-├── menubar.py      # macOS menu bar app (rumps)
-├── create_app.sh   # Builds YT Cutter.app
-├── start.sh        # Terminal launcher
-├── setup-remote.sh # One-line remote installer
+├── app.py            # Flask backend
+├── menubar.py        # macOS menu bar app (rumps)
+├── create_app.sh     # Builds YT Cutter.app
+├── setup.sh          # Local setup script
+├── setup-remote.sh   # curl one-line installer
+├── start.sh          # Terminal launcher
 ├── requirements.txt
 ├── static/
 │   ├── app.js
