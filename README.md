@@ -38,17 +38,13 @@ Everything else (Python, ffmpeg, dependencies) is handled by the setup script.
 
 ## Setup
 
-```bash
-git clone https://github.com/Unev/youtube-cutter.git
-cd youtube-cutter
-./setup.sh
-```
+1. [Download the project](https://github.com/Unev/youtube-cutter/archive/refs/heads/master.zip) and unzip it
+2. Open the folder in Finder
+3. **Double-click `Setup YT Cutter.command`**
 
-That's it. The script will:
-- Install Homebrew (if missing)
-- Install Python and ffmpeg (if missing)
-- Create a virtual environment and install all Python packages
-- Build `YT Cutter.app` and open Finder so you can launch it
+> First time only: macOS may ask *"Are you sure you want to open this?"* — click **Open**.
+
+The setup window will install everything automatically (Homebrew, Python, ffmpeg, packages) and build `YT Cutter.app`. When it's done, Finder opens showing the app.
 
 > Drag `YT Cutter.app` to `/Applications` for easy access from Spotlight.
 
